@@ -1,0 +1,38 @@
+# Mushroom Edibility Classification - Initial Version
+
+
+import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import LabelEncoder
+
+# Load dataset directly from UCI repository
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data"
+
+columns = [
+    "class", "cap-shape", "cap-surface", "cap-color", "bruises", "odor",
+    "gill-attachment", "gill-spacing", "gill-size", "gill-color", "stalk-shape",
+    "stalk-root", "stalk-surface-above-ring", "stalk-surface-below-ring",
+    "stalk-color-above-ring", "stalk-color-below-ring", "veil-type", "veil-color",
+    "ring-number", "ring-type", "spore-print-color", "population", "habitat"
+]
+
+df = pd.read_csv(url, header=None, names=columns)
+
+# Encode all columns with LabelEncoder
+le = LabelEncoder()
+for col in df.columns:
+    df[col] = le.fit_transform(df[col])
+
+# Use all features, target is 'class'
+X = df.drop("class", axis=1)
+y = df["class"]
+
+# Train decision tree on ALL the data (no train/test split)
+model = DecisionTreeClassifier()
+model.fit(X, y)
+
+# Evaluate on the same data it was trained on
+predictions = model.predict(X)
+correct = (predictions == y).sum()
+total = len(y)
+print(f"Accuracy: {correct / total * 100:.2f}%")
