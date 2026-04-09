@@ -1,0 +1,79 @@
+# Mushroom Edibility Classification - 2nd Iteration
+# Improved from mushroom_initial.py with the following changes:
+#   1. 80:20 train/test split to reduce overfitting
+#   2. "?" in stalk-root treated as its own category ("unknown") — no data lost
+#   3. "veil-type" column dropped — zero variance, adds only noise
+#   4. Random Forest used instead of a single Decision Tree
+#   5. Extended evaluation: precision, recall, F1-score, and confusion matrix
+
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+
+# ── 1. Load Dataset ────────────────────────────────────────────────────────────
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data"
+
+columns = [
+    "class", "cap-shape", "cap-surface", "cap-color", "bruises", "odor",
+    "gill-attachment", "gill-spacing", "gill-size", "gill-color", "stalk-shape",
+    "stalk-root", "stalk-surface-above-ring", "stalk-surface-below-ring",
+    "stalk-color-above-ring", "stalk-color-below-ring", "veil-type", "veil-color",
+    "ring-number", "ring-type", "spore-print-color", "population", "habitat"
+]
+
+df = pd.read_csv(url, header=None, names=columns)
+
+# ── 2. Treat "?" in stalk-root as its own valid category ──────────────────────
+# Rather than dropping rows or imputing, "?" is relabelled as "unknown"
+# This preserves all 8,124 rows whilst being honest about the missingness
+df["stalk-root"] = df["stalk-root"].replace("?", "unknown")
+
+# ── 3. Drop veil-type — only one unique value across entire dataset ────────────
+df.drop(columns=["veil-type"], inplace=True)
+
+# ── 4. Encode categorical features with a separate LabelEncoder per column ─────
+# A single shared encoder (as in the initial version) overwrites its own mappings
+encoders = {}
+for col in df.columns:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
+    encoders[col] = le
+
+# ── 5. Train / Test Split (80:20, stratified) ──────────────────────────────────
+# Stratified ensures both splits reflect the original class distribution
+X = df.drop("class", axis=1)
+y = df["class"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print(f"Training samples : {len(X_train)}")
+print(f"Test samples     : {len(X_test)}\n")
+
+# ── 6. Train Random Forest ─────────────────────────────────────────────────────
+# Random Forest reduces the high variance of a single unpruned Decision Tree
+# by averaging predictions across many decorrelated trees
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# ── 7. Evaluate on held-out test set ──────────────────────────────────────────
+predictions = model.predict(X_test)
+
+print("Classification Report:")
+print(classification_report(y_test, predictions, target_names=["Edible", "Poisonous"]))
+
+# ── 8. Confusion Matrix ────────────────────────────────────────────────────────
+cm = confusion_matrix(y_test, predictions)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Edible", "Poisonous"])
+
+fig, ax = plt.subplots(figsize=(6, 5))
+disp.plot(ax=ax, colorbar=False, cmap="Blues")
+ax.set_title("Confusion Matrix – Random Forest (2nd Iteration)")
+plt.tight_layout()
+plt.savefig("confusion_matrix_2nd_iteration.png", dpi=150)
+plt.show()
+print("Saved: confusion_matrix_2nd_iteration.png")
